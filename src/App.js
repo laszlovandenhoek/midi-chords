@@ -3,7 +3,7 @@ import './style/App.css';
 // Views
 import PianoKeyboard from './components/PianoKeyboard';
 // API, data etc.
-import { Chord } from "@tonaljs/tonal";
+import { Chord, Scale, Midi, Note } from "tonal";
 import { MidiInputManager } from 'musicvis-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
@@ -20,20 +20,45 @@ export default class App extends Component {
             this.addCurrentNote,
             this.removeCurrentNote
         );
+
         this.state = {
             viewSize: {
                 outerWidth: 800,
                 outerHeight: 600
             },
             midiLiveData: [],
-            currentNotes: new Map()
+            currentNotes: new Map(),
+            challenge: [],
+            candidateNotesForChallenge: [],
+            expectedNotes: [],
+            challengeIndex: 0,
+            previouslyExpected: []
         };
+
+        this.wakeLock = null;
     }
 
     componentDidMount() {
         // Scale layout to current screen size
         window.addEventListener('resize', this.onResize, false);
         this.onResize();
+
+        // Add event listeners for visibility change and focus
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        window.addEventListener('focus', this.requestWakeLock);
+
+        // Request wake lock when the component mounts
+        this.requestWakeLock();
+    }
+
+    componentWillUnmount() {
+        // Remove event listeners
+        window.removeEventListener('resize', this.onResize);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+        window.removeEventListener('focus', this.requestWakeLock);
+
+        // Release wake lock when component unmounts
+        this.releaseWakeLock();
     }
 
     /**
@@ -54,7 +79,7 @@ export default class App extends Component {
     getMidiLiveData = () => this.state.midiLiveData;
 
     /**
-     * Setter for MIDI input from an instrumetn
+     * Setter for MIDI input from an instrument
      * @param {Note[]} data array with notes
      */
     setMidiLiveData = (data) => {
@@ -71,7 +96,24 @@ export default class App extends Component {
     addCurrentNote = (note) => {
         const newMap = new Map(this.state.currentNotes);
         newMap.set(note.pitch, note);
-        this.setState({ currentNotes: newMap });
+
+        if (this.checkCancelKeys(newMap)) {
+            this.setState({currentNotes: newMap}, this.resetChallenge);
+        } else if (this.state.expectedNotes.includes(note.pitch)) {
+            this.setState(prevState => ({
+                currentNotes: newMap,
+                previouslyExpected: [...prevState.previouslyExpected, note.pitch]
+            }), this.checkChallenge);
+        } else {
+            this.setState({ currentNotes: newMap }, this.checkChallenge);
+        }
+
+        if (this.state.challenge.length === 0) {
+            this.setState(prevState => ({
+                candidateNotesForChallenge: [...prevState.candidateNotesForChallenge, note.pitch]
+            }));
+        }
+
     }
 
     /**
@@ -81,7 +123,45 @@ export default class App extends Component {
     removeCurrentNote = (pitch) => {
         const newMap = new Map(this.state.currentNotes);
         newMap.delete(pitch);
-        this.setState({ currentNotes: newMap });
+        
+        // Remove the note from previouslyExpected if it exists
+        this.setState(prevState => ({
+            currentNotes: newMap,
+            previouslyExpected: prevState.previouslyExpected.filter(p => p !== pitch)
+        }), this.checkChallenge);
+
+        // If all keys are released, call setNewChallenge
+        if (this.state.challenge.length === 0 && newMap.size === 0) {
+            this.setNewChallenge();
+        }
+    }
+
+
+    setNewChallenge = () => {
+        if (this.state.candidateNotesForChallenge.length === 1) {
+            const pitch = this.state.candidateNotesForChallenge[0];
+
+            const note = Note.get(Note.fromMidi(pitch));
+
+            const scale = Scale.rangeOf(`${note.pc} major`)(`${note.pc}1`, `${note.pc}7`);
+            let exercisePattern = [];
+
+            for (let note of scale) {
+                note = Midi.toMidi(note);
+                exercisePattern.push([note]);
+            }
+
+            this.setState({
+                challenge: exercisePattern,
+                expectedNotes: exercisePattern[0],
+                challengeIndex: 0,
+                previouslyExpected: [],
+            });
+        }
+
+        this.setState({
+            candidateNotesForChallenge: []
+        });
     }
 
     /**
@@ -95,14 +175,86 @@ export default class App extends Component {
         return Chord.detect(noteLetters);
     }
 
+    checkChallenge = () => {
+        const { challenge, challengeIndex, currentNotes } = this.state;
+
+        if (challenge.length > 0) {
+            const expectedNotes = challenge[challengeIndex];
+
+            if (currentNotes.size === expectedNotes.length && expectedNotes.every(note => currentNotes.has(note))) {
+                this.advanceChallenge();
+            }
+        }
+    }
+
+    advanceChallenge = () => {
+        const { challenge, challengeIndex } = this.state;
+        if (challengeIndex < challenge.length - 1) {
+            this.setState(prevState => ({
+                challengeIndex: prevState.challengeIndex + 1,
+                expectedNotes: challenge[challengeIndex + 1],
+            }));
+        } else {
+            this.resetChallenge();
+        }
+    }
+
+    // Add this new method
+    checkCancelKeys = (currentNotes) => {
+        const cancelKeys = [21, 22]; //A0 + A#0
+        return cancelKeys.length === currentNotes.size && cancelKeys.every(key => currentNotes.has(key));
+    }
+
+    // Add this new method
+    resetChallenge = () => {
+        this.setState({
+            challenge: [],
+            challengeIndex: 0,
+            expectedNotes: [],
+            previouslyExpected: [],
+        });
+    }
+
+    requestWakeLock = async () => {
+        if ('wakeLock' in navigator) {
+            try {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock is active');
+            } catch (err) {
+                console.error(`Failed to request Wake Lock: ${err.name}, ${err.message}`);
+            }
+        } else {
+            console.warn('Wake Lock API not supported');
+        }
+    }
+
+    releaseWakeLock = async () => {
+        if (this.wakeLock !== null) {
+            try {
+                await this.wakeLock.release();
+                this.wakeLock = null;
+                console.log('Wake Lock released');
+            } catch (err) {
+                console.error(`Failed to release Wake Lock: ${err.name}, ${err.message}`);
+            }
+        }
+    }
+
+    handleVisibilityChange = () => {
+        if (document.hidden) {
+            // Release wake lock when the page is hidden
+            this.releaseWakeLock();
+        } else {
+            // Request wake lock when the page becomes visible
+            this.requestWakeLock();
+        }
+    }
+
     render() {
         const s = this.state;
         const notes = Array.from(s.currentNotes.values())
             .sort((a, b) => a.pitch - b.pitch);
-        // const chord = getChordType(notes);
-        // console.log(chord);
         const chord2 = this.getChordName(notes);
-        console.log(chord2);
         return (
             <div className={`App dark`} >
                 <div className='chordInfo'>
@@ -124,11 +276,18 @@ export default class App extends Component {
                         Connect a MIDI device and play some notes to see the chord type.
                     </span>
                 </div>
+                <div>
+                    {s.challenge.length === 0 
+                        ? "Play a chord to select a scale" 
+                        : `Current challenge: ${s.challengeIndex + 1}/${s.challenge.length}`}
+                </div>
                 <PianoKeyboard
                     name='Piano Keyboard'
                     viewSize={s.viewSize}
                     theme='dark'
                     currentNotes={s.currentNotes}
+                    expectedNotes={s.expectedNotes}
+                    previouslyExpected={s.previouslyExpected}
                 />
                 <div className='githubLink'>
                     <p>

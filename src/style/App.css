@@ -312,6 +312,7 @@ select:disabled:hover {
 /* Chord Info */
 .chordInfo  {
     margin-top: 10px;
+    font-size: 3vw;
 }
 
 .chordInfo > div {

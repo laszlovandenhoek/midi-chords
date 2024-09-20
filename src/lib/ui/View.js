@@ -1,6 +1,4 @@
-import React, { PureComponent } from "react";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowsAltH, faArrowsAltV, faLongArrowAltLeft, faLongArrowAltUp, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
+import { PureComponent } from "react";
 
 export default class View extends PureComponent {
 
@@ -152,54 +150,4 @@ export default class View extends PureComponent {
         }
     }
 
-    /**
-     * Returns the HTML (JSX) for the view size control buttons
-     */
-    getSizeControlHTML = () => (
-        <div className='sizeControl'>
-            {this.state.canResizeRows && (
-                <span>
-                    <button
-                        onClick={this.increaseRows
-                        }
-                        title={'Increase rows'}
-                        disabled={this.state.rowSpan >= this.state.rowlimit}
-                    >
-                        <FontAwesomeIcon icon={faArrowsAltV} />
-                    </button >
-                    <button
-                        onClick={this.decreaseRows}
-                        title={'Decrease rows'}
-                        disabled={this.state.rowSpan <= 1}
-                    >
-                        <FontAwesomeIcon icon={faLongArrowAltUp} />
-                    </button>
-                </span>
-            )}
-            {this.state.canResizeColumns && (
-                <span>
-                    <button
-                        onClick={this.increaseColumns}
-                        title={'Increase columns'}
-                        disabled={this.state.columnSpan >= this.state.columnLimit}
-                    >
-                        <FontAwesomeIcon icon={faArrowsAltH} />
-                    </button>
-                    <button
-                        onClick={this.decreaseColumns}
-                        title={'Decrease columns'}
-                        disabled={this.state.columnSpan <= 1}
-                    >
-                        <FontAwesomeIcon icon={faLongArrowAltLeft} />
-                    </button>
-                </span>
-            )}
-            <button
-                onClick={this.close}
-                title={'Close'}
-            >
-                <FontAwesomeIcon icon={faTimesCircle} />
-            </button>
-        </div >
-    );
 }

@@ -14,7 +14,7 @@ export default class PianoKeyboard extends View {
 
     render() {
         const { rowSpan, columnSpan, viewWidth, viewHeight, width, height, margin } = this.state;
-        const { currentNotes } = this.props;
+        const { currentNotes, expectedNotes, previouslyExpected } = this.props;
         const { minPitch, maxPitch } = Piano.pianoPitchRange.get(88);
         const whiteNotes = range(minPitch, maxPitch + 1).filter(d => !Midi.isSharp(d));
         // Keys
@@ -42,14 +42,24 @@ export default class PianoKeyboard extends View {
                     octaveMarkerPositions.push({ octave, x });
                 }
                 // Colors
-                let color = '#f8f8f8';
-                let textColor = '#111';
+                let color, textColor;
                 let borderRadius = 5;
-                if (currentNotes.has(pitch)) {
-                    color = 'steelblue';
-                } else {
-                    color = black ? '#222' : '#f8f8f8';
-                    textColor = black ? '#eee' : '#222';
+                const hasExpectation = expectedNotes.length > 0;
+                const pitchExpected = expectedNotes.includes(pitch);
+                const pitchPlayed = currentNotes.has(pitch);
+
+                if (!hasExpectation || (!pitchExpected && !pitchPlayed)) {
+                    color = pitchPlayed ? 'steelblue' : (black ? '#222' : '#f8f8f8');
+                    textColor = pitchPlayed ? '#111' : (black ? '#eee' : '#222');
+                } else if (pitchExpected && pitchPlayed) {
+                    color = 'limegreen';
+                    textColor = '#111';
+                } else if (!pitchExpected && pitchPlayed) {
+                    color = previouslyExpected.includes(pitch) ? 'palegreen' : 'red';
+                    textColor = '#111';
+                } else if (pitchExpected && !pitchPlayed) {
+                    color = 'darkgreen';
+                    textColor = '#eee';
                 }
                 const newKey = (
                     <rect
