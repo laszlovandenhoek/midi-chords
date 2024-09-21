@@ -50,9 +50,9 @@ export default class PianoKeyboard extends View {
                 const isCompleted = challenge.length > 0 && challenge.slice(0, challengeIndex).flat().includes(pitch);
                 const isIncorrect = incorrectNotes.has(pitch);
 
-                if (!hasExpectation || (!pitchExpected && !pitchPlayed && !isCompleted && !isIncorrect)) {
-                    color = pitchPlayed ? 'steelblue' : (black ? '#222' : '#f8f8f8');
-                    textColor = pitchPlayed ? '#111' : (black ? '#eee' : '#222');
+                if (!hasExpectation && pitchPlayed) {
+                    color = 'steelblue';
+                    textColor = '#111';
                 } else if (pitchExpected && pitchPlayed) {
                     color = 'limegreen';
                     textColor = '#111';
@@ -68,6 +68,9 @@ export default class PianoKeyboard extends View {
                 } else if (isCompleted) {
                     color = 'limegreen';
                     textColor = '#111';
+                } else {
+                    color = black ? '#222' : '#f8f8f8';
+                    textColor = black ? '#eee' : '#222';
                 }
                 const newKey = (
                     <rect
