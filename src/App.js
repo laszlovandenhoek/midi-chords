@@ -9,6 +9,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
+const keyToPitch = {
+    'a': 21, 'w': 22, 's': 23, 'd': 24, 'r': 25, 'f': 26, 't': 27,
+    'g': 28, 'h': 29, 'u': 30, 'j': 31, 'i': 32, 'k': 33, 'o': 34,
+    'l': 35, ';': 36, '[': 37
+};
 export default class App extends Component {
 
     constructor(props) {
@@ -20,13 +25,6 @@ export default class App extends Component {
             this.addCurrentNote,
             this.removeCurrentNote
         );
-
-        // Add this new property to map keys to pitches
-        this.keyToPitch = {
-            'a': 21, 'w': 22, 's': 23, 'd': 24, 'r': 25, 'f': 26, 't': 27,
-            'g': 28, 'h': 29, 'u': 30, 'j': 31, 'i': 32, 'k': 33, 'o': 34,
-            'l': 35, ';': 36
-        };
 
         this.state = {
             viewSize: {
@@ -116,24 +114,29 @@ export default class App extends Component {
         newMap.set(note.pitch, note);
 
         if (this.checkCancelKeys(newMap)) {
-            this.setState({currentNotes: newMap}, this.resetChallenge);
+            this.setState({ currentNotes: newMap }, this.resetChallenge);
         } else if (this.state.expectedNotes.includes(note.pitch)) {
             const now = Date.now();
             if (this.state.challengeStartTime === null) {
                 this.setState({ challengeStartTime: now });
             }
             const noteTime = now - (this.state.challengeStartTime || now);
-            
+
             this.setState(prevState => ({
                 currentNotes: newMap,
                 previouslyExpected: [...prevState.previouslyExpected, note.pitch],
                 challengeNoteTimes: [...prevState.challengeNoteTimes, noteTime],
             }), this.checkChallenge);
-        } else {
+        } else if (this.state.challenge.length > 0) {
             this.setState(prevState => ({
                 currentNotes: newMap,
                 incorrectNotes: new Set(prevState.incorrectNotes).add(note.pitch),
-            }), this.checkChallenge);
+            }));
+        } else {
+            this.setState({
+                currentNotes: newMap,
+                incorrectNotes: new Set(),
+            });
         }
 
         if (this.state.challenge.length === 0) {
@@ -151,7 +154,7 @@ export default class App extends Component {
     removeCurrentNote = (pitch) => {
         const newMap = new Map(this.state.currentNotes);
         newMap.delete(pitch);
-        
+
         // Remove the note from previouslyExpected if it exists
         this.setState(prevState => ({
             currentNotes: newMap,
@@ -172,6 +175,7 @@ export default class App extends Component {
             const note = Note.get(Note.fromMidi(pitch));
 
             const scale = Scale.rangeOf(`${note.pc} major`)(`${note.pc}1`, `${note.pc}7`);
+
             let exercisePattern = [];
 
             for (let note of scale) {
@@ -243,6 +247,9 @@ export default class App extends Component {
             challengeIndex: 0,
             expectedNotes: [],
             previouslyExpected: [],
+            challengeStartTime: null,
+            challengeNoteTimes: [],
+            incorrectNotes: new Set(),
         });
     }
 
@@ -282,7 +289,7 @@ export default class App extends Component {
     }
 
     handleKeyDown = (event) => {
-        const pitch = this.keyToPitch[event.key.toLowerCase()];
+        const pitch = keyToPitch[event.key.toLowerCase()];
         if (pitch && !event.repeat) {
             const note = new MusicVisNote(pitch);
             this.addCurrentNote(note);
@@ -290,7 +297,7 @@ export default class App extends Component {
     }
 
     handleKeyUp = (event) => {
-        const pitch = this.keyToPitch[event.key.toLowerCase()];
+        const pitch = keyToPitch[event.key.toLowerCase()];
         if (pitch) {
             this.removeCurrentNote(pitch);
         }
@@ -323,8 +330,8 @@ export default class App extends Component {
                     </span>
                 </div>
                 <div>
-                    {s.challenge.length === 0 
-                        ? "Play a chord to select a scale" 
+                    {s.challenge.length === 0
+                        ? "Play a chord to select a scale"
                         : `Current challenge: ${s.challengeIndex + 1}/${s.challenge.length}`}
                 </div>
                 <PianoKeyboard
