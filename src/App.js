@@ -4,7 +4,7 @@ import './style/App.css';
 import PianoKeyboard from './components/PianoKeyboard';
 // API, data etc.
 import { Chord, Scale, Midi, Note } from "tonal";
-import { MidiInputManager } from 'musicvis-lib';
+import { MidiInputManager, Note as MusicVisNote } from 'musicvis-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
@@ -21,6 +21,13 @@ export default class App extends Component {
             this.removeCurrentNote
         );
 
+        // Add this new property to map keys to pitches
+        this.keyToPitch = {
+            'a': 21, 'w': 22, 's': 23, 'd': 24, 'r': 25, 'f': 26, 't': 27,
+            'g': 28, 'h': 29, 'u': 30, 'j': 31, 'i': 32, 'k': 33, 'o': 34,
+            'l': 35, ';': 36
+        };
+
         this.state = {
             viewSize: {
                 outerWidth: 800,
@@ -32,7 +39,10 @@ export default class App extends Component {
             candidateNotesForChallenge: [],
             expectedNotes: [],
             challengeIndex: 0,
-            previouslyExpected: []
+            previouslyExpected: [],
+            challengeStartTime: null,
+            challengeNoteTimes: [],
+            incorrectNotes: new Set()
         };
 
         this.wakeLock = null;
@@ -49,6 +59,10 @@ export default class App extends Component {
 
         // Request wake lock when the component mounts
         this.requestWakeLock();
+
+        // Add key event listeners
+        window.addEventListener('keydown', this.handleKeyDown);
+        window.addEventListener('keyup', this.handleKeyUp);
     }
 
     componentWillUnmount() {
@@ -59,6 +73,10 @@ export default class App extends Component {
 
         // Release wake lock when component unmounts
         this.releaseWakeLock();
+
+        // Remove key event listeners
+        window.removeEventListener('keydown', this.handleKeyDown);
+        window.removeEventListener('keyup', this.handleKeyUp);
     }
 
     /**
@@ -100,12 +118,22 @@ export default class App extends Component {
         if (this.checkCancelKeys(newMap)) {
             this.setState({currentNotes: newMap}, this.resetChallenge);
         } else if (this.state.expectedNotes.includes(note.pitch)) {
+            const now = Date.now();
+            if (this.state.challengeStartTime === null) {
+                this.setState({ challengeStartTime: now });
+            }
+            const noteTime = now - (this.state.challengeStartTime || now);
+            
             this.setState(prevState => ({
                 currentNotes: newMap,
-                previouslyExpected: [...prevState.previouslyExpected, note.pitch]
+                previouslyExpected: [...prevState.previouslyExpected, note.pitch],
+                challengeNoteTimes: [...prevState.challengeNoteTimes, noteTime],
             }), this.checkChallenge);
         } else {
-            this.setState({ currentNotes: newMap }, this.checkChallenge);
+            this.setState(prevState => ({
+                currentNotes: newMap,
+                incorrectNotes: new Set(prevState.incorrectNotes).add(note.pitch),
+            }), this.checkChallenge);
         }
 
         if (this.state.challenge.length === 0) {
@@ -156,6 +184,9 @@ export default class App extends Component {
                 expectedNotes: exercisePattern[0],
                 challengeIndex: 0,
                 previouslyExpected: [],
+                challengeStartTime: null,
+                challengeNoteTimes: [],
+                incorrectNotes: new Set(),
             });
         }
 
@@ -250,6 +281,21 @@ export default class App extends Component {
         }
     }
 
+    handleKeyDown = (event) => {
+        const pitch = this.keyToPitch[event.key.toLowerCase()];
+        if (pitch && !event.repeat) {
+            const note = new MusicVisNote(pitch);
+            this.addCurrentNote(note);
+        }
+    }
+
+    handleKeyUp = (event) => {
+        const pitch = this.keyToPitch[event.key.toLowerCase()];
+        if (pitch) {
+            this.removeCurrentNote(pitch);
+        }
+    }
+
     render() {
         const s = this.state;
         const notes = Array.from(s.currentNotes.values())
@@ -288,8 +334,12 @@ export default class App extends Component {
                     currentNotes={s.currentNotes}
                     expectedNotes={s.expectedNotes}
                     previouslyExpected={s.previouslyExpected}
+                    challenge={s.challenge}
+                    challengeIndex={s.challengeIndex}
+                    incorrectNotes={s.incorrectNotes}
                 />
                 <div className='githubLink'>
+
                     <p>
                         <a href='https://github.com/fheyen/midi-chords'>
                             <FontAwesomeIcon icon={faGithub} />&nbsp;

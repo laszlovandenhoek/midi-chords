@@ -14,7 +14,7 @@ export default class PianoKeyboard extends View {
 
     render() {
         const { rowSpan, columnSpan, viewWidth, viewHeight, width, height, margin } = this.state;
-        const { currentNotes, expectedNotes, previouslyExpected } = this.props;
+        const { currentNotes, expectedNotes, previouslyExpected, challenge, challengeIndex, incorrectNotes } = this.props;
         const { minPitch, maxPitch } = Piano.pianoPitchRange.get(88);
         const whiteNotes = range(minPitch, maxPitch + 1).filter(d => !Midi.isSharp(d));
         // Keys
@@ -47,19 +47,27 @@ export default class PianoKeyboard extends View {
                 const hasExpectation = expectedNotes.length > 0;
                 const pitchExpected = expectedNotes.includes(pitch);
                 const pitchPlayed = currentNotes.has(pitch);
+                const isCompleted = challenge.length > 0 && challenge.slice(0, challengeIndex).flat().includes(pitch);
+                const isIncorrect = incorrectNotes.has(pitch);
 
-                if (!hasExpectation || (!pitchExpected && !pitchPlayed)) {
+                if (!hasExpectation || (!pitchExpected && !pitchPlayed && !isCompleted && !isIncorrect)) {
                     color = pitchPlayed ? 'steelblue' : (black ? '#222' : '#f8f8f8');
                     textColor = pitchPlayed ? '#111' : (black ? '#eee' : '#222');
                 } else if (pitchExpected && pitchPlayed) {
                     color = 'limegreen';
                     textColor = '#111';
                 } else if (!pitchExpected && pitchPlayed) {
-                    color = previouslyExpected.includes(pitch) ? 'palegreen' : 'red';
+                    color = previouslyExpected.includes(pitch) ? 'palegreen' : 'pink';
                     textColor = '#111';
                 } else if (pitchExpected && !pitchPlayed) {
                     color = 'darkgreen';
                     textColor = '#eee';
+                } else if (isIncorrect) {
+                    color = 'red';
+                    textColor = '#111';
+                } else if (isCompleted) {
+                    color = 'limegreen';
+                    textColor = '#111';
                 }
                 const newKey = (
                     <rect
