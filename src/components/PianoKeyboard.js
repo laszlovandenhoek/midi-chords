@@ -1,22 +1,229 @@
 import React from 'react';
-import { range } from 'd3-array';
 import View from '../lib/ui/View';
-import { Midi, Piano } from 'musicvis-lib';
+import { MidiInputManager, Piano, Note as MusicVisNote } from 'musicvis-lib';
+import { Scale, Note as TonalNote, Midi as TonalMidi } from "tonal";
+
+// Define a native range function
+function range(start, end) {
+    return Array.from({ length: end - start }, (_, i) => start + i);
+}
+
+const keyToPitch = {
+    'a': 21, 'w': 22, 's': 23, 'd': 24, 'r': 25, 'f': 26, 't': 27,
+    'g': 28, 'h': 29, 'u': 30, 'j': 31, 'i': 32, 'k': 33, 'o': 34,
+    'l': 35, ';': 36, '[': 37
+};
 
 export default class PianoKeyboard extends View {
 
     constructor(props) {
         const margin = { top: 20, right: 20, bottom: 40, left: 20 };
         super(props, margin, 1, 1, false, false);
+        new MidiInputManager(
+            this.getMidiLiveData,
+            this.setMidiLiveData,
+            this.addCurrentNote,
+            this.removeCurrentNote
+        );
+        this.state = {
+            ...this.state,
+            midiLiveData: [],
+            currentNotes: new Map(),
+            challenge: [],
+            candidateNotesForChallenge: [],
+            expectedNotes: [],
+            challengeIndex: 0,
+            previouslyExpected: [],
+            challengeStartTime: null,
+            challengeNoteTimes: [],
+            incorrectNotes: new Set()
+        };
     }
+
+    componentDidMount() {
+        // Add key event listeners
+        window.addEventListener('keydown', this.handleKeyDown);
+        window.addEventListener('keyup', this.handleKeyUp);
+    }
+
+    componentWillUnmount() {
+        // Remove key event listeners
+        window.removeEventListener('keydown', this.handleKeyDown);
+        window.removeEventListener('keyup', this.handleKeyUp);
+    }
+
+    handleKeyDown = (event) => {
+        const pitch = keyToPitch[event.key.toLowerCase()];
+        if (pitch && !event.repeat) {
+            const note = new MusicVisNote(pitch);
+            this.addCurrentNote(note);
+        }
+    }
+
+    handleKeyUp = (event) => {
+        const pitch = keyToPitch[event.key.toLowerCase()];
+        if (pitch) {
+            this.removeCurrentNote(pitch);
+        }
+    }
+
+    getMidiLiveData = () => this.state.midiLiveData;
+
+    /**
+     * Setter for MIDI input from an instrument
+     * @param {Note[]} data array with notes
+     */
+    setMidiLiveData = (data) => {
+        // Work-around so note_off event handling can immediately find the note_on event
+        // eslint-disable-next-line
+        this.state.midiLiveData = data;
+        this.setState({ midiLiveData: data });
+    };
 
     componentDidUpdate = () => this.resizeComponent();
 
+    // Challenge-related methods
+    addCurrentNote = (note) => {
+        const newMap = new Map(this.state.currentNotes);
+        newMap.set(note.pitch, note);
+
+        // Challenge is active
+        if (this.state.challenge.length > 0) {
+            if (this.checkCancelKeys(newMap)) {
+                this.setState({
+                    currentNotes: newMap,
+                }, this.resetChallenge);
+            } else if (this.state.expectedNotes.includes(note.pitch)) {
+                const now = Date.now();
+                if (this.state.challengeStartTime === null) {
+                    this.setState({ challengeStartTime: now });
+                }
+                const noteTime = now - (this.state.challengeStartTime || now);
+
+                this.setState(prevState => ({
+                    currentNotes: newMap,
+                    previouslyExpected: [...prevState.previouslyExpected, note.pitch],
+                    challengeNoteTimes: [...prevState.challengeNoteTimes, noteTime],
+                }), this.checkChallenge);
+            } else {
+                this.setState(prevState => ({
+                    currentNotes: newMap,
+                    incorrectNotes: new Set(prevState.incorrectNotes).add(note.pitch),
+                }));
+            }
+        
+        // Challenge is not active
+        } else {
+            this.setState(prevState => ({
+                currentNotes: newMap,
+                incorrectNotes: new Set(),
+                candidateNotesForChallenge: [...prevState.candidateNotesForChallenge, note.pitch]
+            }));
+        }
+    }
+
+    removeCurrentNote = (pitch) => {
+        const newMap = new Map(this.state.currentNotes);
+        newMap.delete(pitch);
+
+        this.setState(prevState => ({
+            currentNotes: newMap,
+            previouslyExpected: prevState.previouslyExpected.filter(p => p !== pitch)
+        }), this.checkChallenge);
+
+        if (this.state.challenge.length === 0 && newMap.size === 0) {
+            this.setNewChallenge();
+        }
+    }
+
+    setNewChallenge = () => {
+        if (this.state.candidateNotesForChallenge.length === 1) {
+            const pitch = this.state.candidateNotesForChallenge[0];
+
+            const note = TonalNote.get(TonalNote.fromMidi(pitch));
+
+            const { minPitch, maxPitch } = Piano.pianoPitchRange.get(88);
+            const minNote = TonalNote.get(TonalNote.fromMidi(minPitch));
+            const maxNote = TonalNote.get(TonalNote.fromMidi(maxPitch));
+
+            const scale = Scale.rangeOf(`${note.pc} major`)(minNote.name, maxNote.name);
+
+            const startIndex = scale.findIndex(n => TonalNote.get(n).letter === note.letter);
+            const endIndex = scale.slice().reverse().findIndex(n => TonalNote.get(n).letter === note.letter);
+            const largestSlice = scale.slice(startIndex, scale.length - endIndex);
+
+            let exercisePattern = [];
+
+            for (let n of largestSlice) {
+                n = TonalMidi.toMidi(n);
+                exercisePattern.push([n]);
+            }
+
+            this.setState({
+                challenge: exercisePattern,
+                expectedNotes: exercisePattern[0],
+                challengeIndex: 0,
+                previouslyExpected: [],
+                challengeStartTime: null,
+                challengeNoteTimes: [],
+                incorrectNotes: new Set(),
+            });
+        }
+
+        this.setState({
+            candidateNotesForChallenge: []
+        });
+    }
+
+    checkChallenge = () => {
+        const { challenge, challengeIndex, currentNotes } = this.state;
+
+        if (challenge.length > 0) {
+            const expectedNotes = challenge[challengeIndex];
+
+            if (currentNotes.size === expectedNotes.length && expectedNotes.every(note => currentNotes.has(note))) {
+                this.advanceChallenge();
+            }
+        }
+    }
+
+    advanceChallenge = () => {
+        const { challenge, challengeIndex } = this.state;
+        if (challengeIndex < challenge.length - 1) {
+            this.setState(prevState => ({
+                challengeIndex: prevState.challengeIndex + 1,
+                expectedNotes: challenge[prevState.challengeIndex + 1],
+            }));
+        } else {
+            this.resetChallenge();
+        }
+    }
+
+    checkCancelKeys = (currentNotes) => {
+        const cancelKeys = [21, 22]; // A0 + A#0
+        return cancelKeys.length === currentNotes.size && cancelKeys.every(key => currentNotes.has(key));
+    }
+
+    resetChallenge = () => {
+        this.setState({
+            challenge: [],
+            challengeIndex: 0,
+            expectedNotes: [],
+            previouslyExpected: [],
+            challengeStartTime: null,
+            challengeNoteTimes: [],
+            incorrectNotes: new Set(),
+        });
+    }
+
     render() {
-        const { rowSpan, columnSpan, viewWidth, viewHeight, width, height, margin } = this.state;
-        const { currentNotes, expectedNotes, previouslyExpected, challenge, challengeIndex, incorrectNotes } = this.props;
+        const { rowSpan, columnSpan, viewWidth, viewHeight, width, height, margin,
+            currentNotes, expectedNotes, previouslyExpected, challenge, challengeIndex, incorrectNotes } = this.state;
         const { minPitch, maxPitch } = Piano.pianoPitchRange.get(88);
-        const whiteNotes = range(minPitch, maxPitch + 1).filter(d => !Midi.isSharp(d));
+        const whiteNotes = range(minPitch, maxPitch + 1)
+            .map(TonalNote.fromMidi)
+            .map(TonalNote.get)
+            .filter(d => d.acc === '');
         // Keys
         const keyWidth = width / whiteNotes.length;
         const blackKeyWidth = keyWidth * 0.9;
@@ -31,8 +238,9 @@ export default class PianoKeyboard extends View {
                 if (pitch < minPitch || pitch > maxPitch) {
                     continue;
                 }
-                const black = Midi.isSharp(pitch);
-                const note = Midi.getMidiNoteByNr(pitch);
+
+                const note = TonalNote.get(TonalNote.fromMidiSharps(pitch));
+                const black = note.acc !== '';
                 // Position and size
                 const x = black ? currentX - (0.5 * blackKeyWidth) : currentX;
                 let y = black ? 0 : height * 0.02;
@@ -86,7 +294,7 @@ export default class PianoKeyboard extends View {
                         strokeWidth='0.5'
                     >
                         <title>
-                            {note.label} (MIDI {pitch})
+                            {note.name} (MIDI {pitch})
                         </title>
                     </rect>
                 );
@@ -104,7 +312,7 @@ export default class PianoKeyboard extends View {
                         x={x + 0.5 * w}
                         y={black ? h - 18 : h - 10}
                     >
-                        {note.name}
+                        {note.pc}
                     </text>
                 ));
                 if (black) {
@@ -149,26 +357,33 @@ export default class PianoKeyboard extends View {
         }
         // HTML
         return (
-            <div
-                className='View PianoKeyboard'
-                style={{ gridArea: `span ${rowSpan} / span ${columnSpan}` }}
-            >
-                <svg
-                    width={viewWidth}
-                    height={viewHeight}
+            <div>
+                <div>
+                    {challenge.length === 0
+                        ? "Play a chord to select a scale"
+                        : `Current challenge: ${challengeIndex + 1}/${challenge.length}`}
+                </div>
+                <div
+                    className='View PianoKeyboard'
+                    style={{ gridArea: `span ${rowSpan} / span ${columnSpan}` }}
                 >
-                    <g
-                        ref={n => this.svg = n}
-                        transform={`translate(${margin.left}, ${margin.top})`}
+                    <svg
+                        width={viewWidth}
+                        height={viewHeight}
                     >
-                        {whiteKeys}
-                        {blackKeys}
-                        {labels}
-                        {octaveMarkers}
-                        {octaveMarkerLabels}
-                    </g>
-                </svg>
-            </div >
+                        <g
+                            ref={n => this.svg = n}
+                            transform={`translate(${margin.left}, ${margin.top})`}
+                        >
+                            {whiteKeys}
+                            {blackKeys}
+                            {labels}
+                            {octaveMarkers}
+                            {octaveMarkerLabels}
+                        </g>
+                    </svg>
+                </div >
+            </div>
         );
     }
 }
