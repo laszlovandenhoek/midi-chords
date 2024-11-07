@@ -83,12 +83,19 @@ export default class PianoKeyboard extends View {
     componentDidUpdate = () => this.resizeComponent();
 
     // Challenge-related methods
+    isChallengeActive = () => {
+        return this.state.challenge.length > 0;
+    }
+    isChallengeFinished = () => {
+        return this.state.expectedNotes.length === 0;
+    }
+
     addCurrentNote = (note) => {
         const newMap = new Map(this.state.currentNotes);
         newMap.set(note.pitch, note);
 
         // Challenge is active
-        if (this.state.challenge.length > 0) {
+        if (this.isChallengeActive()) {
             if (this.checkCancelKeys(newMap)) {
                 this.setState({
                     currentNotes: newMap,
@@ -108,11 +115,11 @@ export default class PianoKeyboard extends View {
             } else {
                 this.setState(prevState => ({
                     currentNotes: newMap,
-                    incorrectNotes: new Set(prevState.incorrectNotes).add(note.pitch),
+                    incorrectNotes: this.isChallengeFinished() ? prevState.incorrectNotes : new Set(prevState.incorrectNotes).add(note.pitch),
                 }));
             }
-        
-        // Challenge is not active
+
+            // Challenge is not active
         } else {
             this.setState(prevState => ({
                 currentNotes: newMap,
@@ -145,6 +152,7 @@ export default class PianoKeyboard extends View {
             const { minPitch, maxPitch } = Piano.pianoPitchRange.get(88);
             const minNote = TonalNote.get(TonalNote.fromMidi(minPitch));
             const maxNote = TonalNote.get(TonalNote.fromMidi(maxPitch));
+            // const maxNote = TonalNote.get('C2');
 
             const scale = Scale.rangeOf(`${note.pc} major`)(minNote.name, maxNote.name);
 
@@ -176,13 +184,16 @@ export default class PianoKeyboard extends View {
     }
 
     checkChallenge = () => {
-        const { challenge, challengeIndex, currentNotes } = this.state;
+        const { challenge, expectedNotes, currentNotes, challengeNoteTimes } = this.state;
 
-        if (challenge.length > 0) {
-            const expectedNotes = challenge[challengeIndex];
-
-            if (currentNotes.size === expectedNotes.length && expectedNotes.every(note => currentNotes.has(note))) {
-                this.advanceChallenge();
+        if (this.isChallengeActive()) {
+            if (!this.isChallengeFinished()) {
+                if (currentNotes.size === expectedNotes.length && expectedNotes.every(note => currentNotes.has(note))) {
+                    this.advanceChallenge();
+                }
+            } else {
+                // this.resetChallenge();
+                console.log(challengeNoteTimes)
             }
         }
     }
@@ -195,8 +206,12 @@ export default class PianoKeyboard extends View {
                 expectedNotes: challenge[prevState.challengeIndex + 1],
             }));
         } else {
-            this.resetChallenge();
+            this.setState(prevState => ({
+                challengeIndex: prevState.challengeIndex + 1,
+                expectedNotes: [],
+            }));
         }
+
     }
 
     checkCancelKeys = (currentNotes) => {
@@ -359,9 +374,12 @@ export default class PianoKeyboard extends View {
         return (
             <div>
                 <div>
-                    {challenge.length === 0
-                        ? "Play a chord to select a scale"
-                        : `Current challenge: ${challengeIndex + 1}/${challenge.length}`}
+                    {this.isChallengeActive() ?
+                        this.isChallengeFinished() ?
+                        `Challenge finished!` :
+                        `Current challenge: ${challengeIndex}/${challenge.length}`
+                        : "Play a chord to select a scale"
+                    }
                 </div>
                 <div
                     className='View PianoKeyboard'
