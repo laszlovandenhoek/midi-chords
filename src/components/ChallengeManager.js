@@ -184,22 +184,10 @@ function ChallengeManager({ onNotePress, onNoteRelease }) {
     const isChallengeActive = () => state.challenge.length > 0;
     const isChallengeFinished = () => state.challengeIndex >= state.challenge.length;
 
-    const checkCancelKeys = (currentNotes) => {
-        const cancelKeys = [21, 22];
-        return cancelKeys.length === currentNotes.size && cancelKeys.every(key => currentNotes.has(key));
-    };
-
-    useEffect(() => {
-        if (isChallengeActive() && checkCancelKeys(state.currentNotes)) {
-            dispatch({ type: 'RESET_CHALLENGE' });
-        }
-    }, [isChallengeActive(), state.currentNotes]);
-
     useEffect(() => {
         const addCurrentNote = (note) => {
             const now = Date.now();
             dispatch({ type: 'ADD_NOTE', payload: { note, now } });
-
         };
 
         const removeCurrentNote = (pitch) => {
@@ -229,6 +217,7 @@ function ChallengeManager({ onNotePress, onNoteRelease }) {
         state.currentNotes.size,
     ]);
 
+    // Advance the challenge if the expected notes are pressed
     useEffect(() => {
         if (isChallengeActive()) {
             if (!isChallengeFinished()) {
@@ -238,10 +227,22 @@ function ChallengeManager({ onNotePress, onNoteRelease }) {
                     dispatch({ type: 'ADVANCE_CHALLENGE' });
                 }
             } else {
+                //TODO: store statistics of finished challenge
                 dispatch({ type: 'RESET_CHALLENGE' });
             }
         }
     }, [isChallengeActive(), isChallengeFinished(), state.currentNotes]);
+
+    // Reset the challenge if the cancel keys (lowest two piano keys) are pressed
+    const checkCancelKeys = (currentNotes) => {
+        const cancelKeys = [21, 22];
+        return cancelKeys.length === currentNotes.size && cancelKeys.every(key => currentNotes.has(key));
+    };
+    useEffect(() => {
+        if (isChallengeActive() && checkCancelKeys(state.currentNotes)) {
+            dispatch({ type: 'RESET_CHALLENGE' });
+        }
+    }, [isChallengeActive(), state.currentNotes]);
 
     return (
         <div>
