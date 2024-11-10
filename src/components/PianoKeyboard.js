@@ -26,6 +26,8 @@ export default class PianoKeyboard extends View {
             case KeyState.Good:
                 return 'limegreen';
             case KeyState.Bad:
+                return 'red';
+            case KeyState.Mistake:
                 return 'pink';
             case KeyState.Done:
                 return 'palegreen';

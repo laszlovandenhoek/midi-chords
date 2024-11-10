@@ -1,25 +1,39 @@
 import { KeyState } from '../types/KeyState';
 
 export function notesToDisplay(state) {
-    const { currentNotes, previouslyExpected, challenge, challengeIndex, incorrectNotes } = state;
-    const expectedNotes = challengeIndex < challenge.length ? challenge[challengeIndex] : []
+    const { currentNotes, challenge } = state;
     const notesToDisplay = new Map();
 
-    for (const note of incorrectNotes) {
-        notesToDisplay.set(note, KeyState.Bad);
-    }
+    if (challenge) {
+        for (const note of currentNotes.keys()) {
+            notesToDisplay.set(note, KeyState.Good);
+        }
 
-    for (const note of expectedNotes) {
-        notesToDisplay.set(note, KeyState.Next);
-    }
+        for (const note of challenge.incorrectNotes) {
+            if (currentNotes.has(note)) {
+                notesToDisplay.set(note, KeyState.Bad);
+            } else {
+                notesToDisplay.set(note, KeyState.Mistake);
+            }
+        }
 
-    for (const note of currentNotes.keys()) {
-        notesToDisplay.set(note, KeyState.Down);
-    }
+        for (const handIndex of challenge.indexes.keys()) {
+            const hand = challenge.sequences[handIndex];
+            const challengeIndex = challenge.indexes[handIndex];
+            const expectedNotes = challengeIndex < hand.length ? hand[challengeIndex].notes : []
+            for (const note of expectedNotes) {
+                if (!note.empty) {
+                    notesToDisplay.set(note.midi, KeyState.Next);
+                }
+            }
+        }
 
-    for (const note of previouslyExpected) {
-        if (challenge.slice(0, challengeIndex).flat().includes(note)) {
+        for (const note of challenge.previouslyExpected) {
             notesToDisplay.set(note, KeyState.Done);
+        }
+    } else {
+        for (const note of currentNotes.keys()) {
+            notesToDisplay.set(note, KeyState.Down);
         }
     }
 

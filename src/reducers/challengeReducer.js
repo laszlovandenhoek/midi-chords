@@ -1,32 +1,24 @@
+import { Challenge } from '../models/Challenge';
+
 export const initialState = {
     currentNotes: new Map(),
-    challenge: [],
+    challenge: null,
     candidateNotesForChallenge: [],
-    challengeIndex: 0,
-    previouslyExpected: [],
-    incorrectNotes: [],
-    challengeStartTime: null,
-    challengeNoteTimes: []
-}; 
+};
 
 export function challengeReducer(state, action) {
     switch (action.type) {
         case 'SET_NEW_CHALLENGE': {
-            console.log('🎯 SET_NEW_CHALLENGE:', action.payload);
             const { exercisePattern } = action.payload;
+            console.log('🎯 SET_NEW_CHALLENGE:', exercisePattern);
             return {
                 ...state,
-                challenge: exercisePattern,
-                challengeIndex: 0,
-                previouslyExpected: [],
-                challengeStartTime: null,
-                challengeNoteTimes: [],
-                candidateNotesForChallenge: []
+                challenge: new Challenge(exercisePattern),
             };
         }
 
         case 'RESET_CANDIDATE_NOTES': {
-            console.log('🔄 RESET_CANDIDATE_NOTES');
+            // console.log('🔄 RESET_CANDIDATE_NOTES');
             return {
                 ...state,
                 candidateNotesForChallenge: []
@@ -34,46 +26,29 @@ export function challengeReducer(state, action) {
         }
 
         case 'RESET_CHALLENGE': {
-            console.log('🔄 RESET_CHALLENGE');
+            // console.log('🔄 RESET_CHALLENGE');
             return initialState;
         }
 
-        case 'ADVANCE_CHALLENGE': {
-            console.log('⏭️ ADVANCE_CHALLENGE');
+        case 'TRY_ADVANCE_CHALLENGE': {
+            console.log('⏭️ TRY_ADVANCE_CHALLENGE');
             return {
                 ...state,
-                challengeIndex: state.challengeIndex + 1,
+                challenge: state.challenge.tryAdvance(state.currentNotes)
             };
         }
 
         case 'ADD_NOTE': {
             console.log('➕ ADD_NOTE:', action.payload);
-            const { note, now } = action.payload;
+            const { note } = action.payload;
             const newNotes = new Map(state.currentNotes);
             newNotes.set(note.pitch, note);
 
-            if (state.challenge.length > 0 && state.challengeIndex < state.challenge.length) {
-                const expectedNotes = state.challenge[state.challengeIndex];
-
-                if (expectedNotes.includes(note.pitch)) {
-                    const startTime = state.challengeStartTime === null ? now : state.challengeStartTime;
-                    const noteTime = now - startTime;
-                    const challengeNoteTimes = [...state.challengeNoteTimes, noteTime];
-
-                    return {
-                        ...state,
-                        currentNotes: newNotes,
-                        challengeStartTime: startTime,
-                        previouslyExpected: [...state.previouslyExpected, note.pitch],
-                        challengeNoteTimes: challengeNoteTimes
-                    };
-                } else {
-                    return {
-                        ...state,
-                        currentNotes: newNotes,
-                        incorrectNotes: [...state.incorrectNotes, note.pitch]
-                    };
-                }
+            if (state.challenge) {
+                return {
+                    ...state,
+                    currentNotes: newNotes,
+                };
             } else {
                 return {
                     ...state,
@@ -92,7 +67,7 @@ export function challengeReducer(state, action) {
             return {
                 ...state,
                 currentNotes: newNotes,
-                previouslyExpected: state.previouslyExpected.filter(p => p !== pitch),
+                challenge: state.challenge?.release(pitch)
             };
         }
 

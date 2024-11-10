@@ -3,6 +3,7 @@ export const KeyState = {
     Up: 'Up',     // Key is not being pressed
     Good: 'Good',   // Key is correctly pressed during challenge
     Bad: 'Bad',    // Key is incorrectly pressed during challenge
+    Mistake: 'Mistake', // Key was incorrectly pressed in this challenge
     Done: 'Done',   // Key was correctly played in this challenge
     Next: 'Next'    // Key is expected to be pressed next
 }; 

@@ -24,7 +24,7 @@ export function usePianoEvents(onNotePress, onNoteRelease) {
                 onNotePress({
                     pitch,
                     note: TonalNote.get(TonalNote.fromMidiSharps(pitch)),
-                    timestamp: Date.now(),
+                    timestamp: performance.now(),
                     source: 'keyboard'
                 });
             }
@@ -36,7 +36,7 @@ export function usePianoEvents(onNotePress, onNoteRelease) {
                 onNoteRelease({
                     pitch,
                     note: TonalNote.get(TonalNote.fromMidiSharps(pitch)),
-                    timestamp: Date.now(),
+                    timestamp: performance.now(),
                     source: 'keyboard'
                 });
             }
@@ -47,7 +47,7 @@ export function usePianoEvents(onNotePress, onNoteRelease) {
             onNotePress({
                 pitch: note.pitch,
                 note: TonalNote.get(TonalNote.fromMidiSharps(note.pitch)),
-                timestamp: Date.now(),
+                timestamp: performance.now(),
                 source: 'midi'
             });
         };
@@ -56,7 +56,7 @@ export function usePianoEvents(onNotePress, onNoteRelease) {
             onNoteRelease({
                 pitch: note,
                 note: TonalNote.get(TonalNote.fromMidiSharps(note)),
-                timestamp: Date.now(),
+                timestamp: performance.now(),
                 source: 'midi'
             });
         };

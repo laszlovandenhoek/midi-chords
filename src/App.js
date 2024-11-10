@@ -55,6 +55,7 @@ export default function App() {
 
     return (
         <div className={`App dark`} >
+            {/*
             <div className='chordInfo'>
                 <div>
                     {notes.map(d => d.note.name).join(' ')}
@@ -69,6 +70,7 @@ export default function App() {
                     Connect a MIDI device and play some notes to see the chord type.
                 </span>
             </div>
+            */}
             <ChallengeManager
                 name='Challenge Manager'
                 onNotePress={notePress}
