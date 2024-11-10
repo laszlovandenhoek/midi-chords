@@ -22,7 +22,7 @@ export function getExercisePattern(notes) {
 
     const startIndex = scale.findIndex(n => Note.get(n).letter === note.letter);
     const endIndex = scale.slice().reverse().findIndex(n => Note.get(n).letter === note.letter);
-    const largestSlice = scale.slice(startIndex, scale.length - endIndex);
+    const largestSlice = scale.slice(startIndex, scale.length - endIndex).slice(0, 8);
 
     const pattern = largestSlice.map(n => new ChallengeChord([Note.get(n)], DurationValue.get("s")));
 
