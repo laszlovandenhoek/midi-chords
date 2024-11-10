@@ -113,14 +113,6 @@ function ChallengeManager({ onNotePress, onNoteRelease }) {
             </div>
             <div>
                 {isRecording && <div style={{ color: 'red' }}>Recording...</div>}
-                {isChallengeActive ?
-                    isChallengeFinished ?
-                        `Challenge finished!` :
-                        `Current challenge: ${state.challenge.indexes.map(x => x + 1).join(',')} / ${state.challenge.sequences.map(x => x.length).join(',')}`
-                    : isChernyMode ?
-                        "Play any note to start Czerny exercise" :
-                        "Play a note to select a scale"
-                }
             </div>
             <PianoKeyboard
                 name='Piano Keyboard'
@@ -128,6 +120,20 @@ function ChallengeManager({ onNotePress, onNoteRelease }) {
                 currentNotes={notesToDisplay(state)}
                 theme='dark'
             />
+            {isChallengeActive ?
+                isChallengeFinished ?
+                    `Challenge finished!` :
+                    <pre style={{
+                        fontFamily: 'monospace',
+                        whiteSpace: 'pre-wrap',
+                        margin: '1rem 0'
+                    }}>
+                        {state.challenge.getProgressReport()}
+                    </pre>
+                : isChernyMode ?
+                    "Play any note to start Czerny exercise" :
+                    "Play a note to select a scale"
+            }
         </div>
     );
 }

@@ -76,20 +76,6 @@ export default function App() {
                 onNotePress={notePress}
                 onNoteRelease={noteRelease}
             />
-            <div className='githubLink'>
-                <p>
-                    <a href='https://github.com/fheyen/midi-chords'>
-                        <FontAwesomeIcon icon={faGithub} />&nbsp;
-                        https://github.com/fheyen/midi-chords
-                    </a>
-                </p>
-                <p>
-                    Using&nbsp;
-                    <a href='https://github.com/tonaljs/tonal/tree/master/packages/chord-detect'>
-                        tonaljs
-                    </a>.
-                </p>
-            </div>
         </div >
     );
 }

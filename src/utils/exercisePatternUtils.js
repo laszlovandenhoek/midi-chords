@@ -5,7 +5,7 @@ export const rest = "R";
 
 export class ChallengeChord {
     constructor(notes, duration) {
-        this.notes = notes;
+        this.notes = notes.map(n => Note.get(n));
         this.duration = duration;
     }
 }
@@ -24,7 +24,7 @@ export function getExercisePattern(notes) {
     const endIndex = scale.slice().reverse().findIndex(n => Note.get(n).letter === note.letter);
     const largestSlice = scale.slice(startIndex, scale.length - endIndex).slice(0, 8);
 
-    const pattern = largestSlice.map(n => new ChallengeChord([Note.get(n)], DurationValue.get("s")));
+    const pattern = largestSlice.map(n => new ChallengeChord([n], DurationValue.get("s")));
 
     return [pattern]; //one hand only
 }
@@ -34,33 +34,24 @@ export function getCherny1Pattern() {
     const sixteenth = DurationValue.get("s");
     const eighth = DurationValue.get("e");
     const quarter = DurationValue.get("q");
+    const half = DurationValue.get("h");
 
-    const rightHandPattern = [
+    const leftNotes = [
+        new ChallengeChord(['C4', 'E4'], quarter), new ChallengeChord([rest], half), new ChallengeChord(['G3', 'B3', 'F4'], quarter),
+        new ChallengeChord(['C4', 'E4'], quarter), new ChallengeChord([rest], half), new ChallengeChord(['G3', 'B3', 'F4'], quarter),
+        new ChallengeChord(['C4', 'E4'], quarter), new ChallengeChord(['G3', 'B3', 'F4'], quarter),
+        new ChallengeChord(['C4', 'E4'], quarter), new ChallengeChord(['G3', 'B3', 'F4'], quarter),
+        new ChallengeChord(['C4', 'E4'], quarter)
+    ];
+    
+    const rightNotes = [
         ['C5'], ['D5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['D5'],
         ['C5'], ['D5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['F5'], ['G5'], ['F5'], ['E5'], ['D5'],
         ['C5'], ['E5'], ['G5'], ['E5'], ['D5'], ['G5'], ['F5'], ['D5'], ['C5'], ['E5'], ['G5'], ['E5'], ['D5'], ['G5'], ['F5'], ['D5'],
-        ['C5'], ['D5'], ['E5'], ['F5'], ['G5'], ['A5'], ['B5'], ['C6'] // the final C5 is an eighth note, we add it later
+        ['C5'], ['D5'], ['E5'], ['F5'], ['G5'], ['A5'], ['B5'], ['C6'] // the final C5 is an eighth note, we add it separately
     ];
-
-    const leftHandPattern = [
-        ['C4', 'E4'], [rest], [rest], ['G3', 'B3', 'F4'],
-        ['C4', 'E4'], [rest], [rest], ['G3', 'B3', 'F4'],
-        ['C4', 'E4'], ['G3', 'B3', 'F4'], ['C4', 'E4'], ['G3', 'B3', 'F4'],
-        ['C4', 'E4']
-    ];
-
-    const rightNotes = rightHandPattern
-        .map(notes => notes.map(n => Note.get(n)));
-
-    const leftNotes = leftHandPattern
-        .map(notes => notes.map(n => Note.get(n)));
-
     const rightNotesWithDurations = rightNotes.map(n => new ChallengeChord(n, sixteenth));
+    const right = [...rightNotesWithDurations, new ChallengeChord(['C5'], eighth)];
 
-    const leftNotesWithDurations = leftNotes.map(n => new ChallengeChord(n, quarter));
-
-    const right = [...rightNotesWithDurations, new ChallengeChord([Note.get('C5')], eighth)];
-    const left = leftNotesWithDurations;
-
-    return [left, right]; //two hands
+    return [leftNotes, right]; //two hands
 }
