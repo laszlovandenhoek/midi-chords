@@ -3,6 +3,7 @@ import React from 'react';
 import { Note as TonalNote } from "tonal";
 import View from '../lib/ui/View';
 import { KeyState } from '../types/KeyState';
+import { pitchToKey } from '../constants/keyboardMapping';
 
 // Define a native range function
 function range(start, end) {
@@ -104,21 +105,54 @@ export default class PianoKeyboard extends View {
                     </rect>
                 );
                 labels.push((
-                    <text
-                        key={pitch}
-                        fontSize='10px'
-                        style={{
-                            fill: textColor,
-                            textAnchor: 'middle',
-                            alignmentBaseline: 'baseline',
-                            writingMode: 'vertical-lr',
-                            textOrientation: 'upright'
-                        }}
-                        x={x + 0.5 * w}
-                        y={black ? h - 18 : h - 10}
-                    >
-                        {note.pc}
-                    </text>
+                    <g key={pitch}>
+                        {/* Keyboard mapping letter(s) */}
+                        {pitchToKey[pitch] && pitchToKey[pitch].map((key, i) => (
+                            <g key={key} transform={`translate(${x + 0.5 * w + (i - pitchToKey[pitch].length/2 + 0.5) * 17}, ${black ? h - 42 : h - 37})`}>
+                                {/* Key background */}
+                                <rect
+                                    width="16"
+                                    height="16"
+                                    x="-8"
+                                    y="-8"
+                                    rx="2"
+                                    ry="2"
+                                    fill="#e0e0e0"
+                                    stroke="#888"
+                                    strokeWidth="0.5"
+                                />
+                                {/* Key letter */}
+                                <text
+                                    fontSize='8px'
+                                    style={{
+                                        fill: '#222',
+                                        textAnchor: 'middle',
+                                        alignmentBaseline: 'middle',
+                                        userSelect: 'none'
+                                    }}
+                                    x="0"
+                                    y="0"
+                                >
+                                    {key}
+                                </text>
+                            </g>
+                        ))}
+                        {/* Note name */}
+                        <text
+                            fontSize='10px'
+                            style={{
+                                fill: textColor,
+                                textAnchor: 'middle',
+                                alignmentBaseline: 'baseline',
+                                writingMode: 'vertical-lr',
+                                textOrientation: 'upright'
+                            }}
+                            x={x + 0.5 * w}
+                            y={black ? h - 18 : h - 10}
+                        >
+                            {note.pc}
+                        </text>
+                    </g>
                 ));
                 if (black) {
                     blackKeys.push(newKey);
